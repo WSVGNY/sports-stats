@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 from pathlib import Path
 from nicegui import ui
-from data import load_skaters_data, find_player, get_all_game_scores, get_all_player_names
-from stats import calculate_percentile, get_rating, get_rating_color
+from data import load_skaters_data, find_player, get_all_game_scores, get_all_player_names, get_player_criteria_stats, get_all_criteria_values
+from stats import calculate_percentile, get_grade, calculate_criteria_percentiles
 
 # Plain text styling
 ui.add_head_html('''
@@ -29,49 +29,74 @@ DATA_FILE = Path(__file__).parent.parent / 'data' / '2024-2025-skaters.csv'
 skaters = load_skaters_data(DATA_FILE)
 all_game_scores = get_all_game_scores(skaters)
 all_player_names = get_all_player_names(skaters)
+all_criteria_values = get_all_criteria_values(skaters)
 
-answer_label = None
-percentile_label = None
-bar_label = None
+result_container = None
 
 
 def submit_question():
     player_name = player_input.value
 
     if not player_name:
-        show_answer("Please enter a player name", None)
+        show_error("Please enter a player name")
         return
 
     player = find_player(skaters, player_name)
 
     if not player:
-        show_answer(f"Player '{player_name}' not found", None)
+        show_error(f"Player '{player_name}' not found")
         return
 
+    # Calculate overall grade from gameScore
     player_game_score = float(player['gameScore'])
     percentile = calculate_percentile(player_game_score, all_game_scores)
-    rating = get_rating(percentile)
+    grade = get_grade(percentile)
 
-    show_answer(rating, percentile)
+    # Calculate criteria breakdown
+    player_stats = get_player_criteria_stats(player)
+    criteria_percentiles = calculate_criteria_percentiles(player_stats, all_criteria_values)
+
+    show_answer(grade, percentile, criteria_percentiles)
 
 
-def show_answer(text, percentile):
-    global answer_label, percentile_label, bar_label
+def show_error(message):
+    global result_container
+    result_container.clear()
+    with result_container:
+        ui.label(message).style('color: black; margin-top: 20px;')
 
-    # Update existing labels instead of clearing
-    answer_label.set_text(f'Answer: {text}')
 
-    if percentile is not None:
-        percentile_label.set_text(f'({percentile:.1f}th percentile)')
+def show_answer(grade, percentile, criteria_percentiles):
+    global result_container
 
-        # ASCII progress bar
-        bar_length = 50
-        filled = int((percentile / 100) * bar_length)
-        bar = '▓' * filled + '░' * (bar_length - filled)
-        bar_label.set_text(bar)
-    else:
-        percentile_label.set_text('')
-        bar_label.set_text('')
+    result_container.clear()
+
+    with result_container:
+        # Overall goodness
+        ui.label(f'Overall goodness: {grade} ({percentile:.1f}th percentile)').style('color: black; margin-top: 20px; font-weight: bold;')
+
+        # Criteria breakdown
+        criteria_order = [
+            ('scoring', 'Scoring'),
+            ('shooting', 'Shooting'),
+            ('playmaking', 'Playmaking'),
+            ('defense', 'Defense'),
+            ('physicality', 'Physicality'),
+            ('possession', 'Possession')
+        ]
+
+        for key, label in criteria_order:
+            pct = criteria_percentiles[key]
+            bar_length = 20
+            filled = int((pct / 100) * bar_length)
+            empty = bar_length - filled
+            bar = '█' * filled + '░' * empty
+            grade_letter = get_grade(pct)
+
+            with ui.row().classes('items-center').style('gap: 2px; margin-bottom: -8px;'):
+                ui.label(label).style('color: black; width: 100px;')
+                ui.label(bar).style('color: black;')
+                ui.label(grade_letter).style('color: black;')
 
 
 # Main layout - simple, left-aligned
@@ -89,9 +114,7 @@ with ui.column().style('width: 800px; margin: 50px auto; padding: 20px;'):
     submit_label = ui.label('submit').style('color: black; text-decoration: underline; cursor: pointer;')
     submit_label.on('click', submit_question)
 
-    # Pre-create answer elements to prevent layout shift
-    answer_label = ui.label('').style('color: black; margin-top: 20px; min-height: 20px;')
-    percentile_label = ui.label('').style('color: black; margin-top: 5px; min-height: 20px;')
-    bar_label = ui.label('').style('color: black; margin-top: 10px; letter-spacing: 1px; min-height: 20px; font-family: monospace; white-space: pre;')
+    # Container for results
+    result_container = ui.column()
 
 ui.run()
