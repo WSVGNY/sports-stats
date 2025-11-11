@@ -27,6 +27,6 @@ def get_rating_color(rating):
     if rating == "No":
         return "red"
     elif rating == "Maybe":
-        return "orange"
+        return "blue"
     else:
         return "green"

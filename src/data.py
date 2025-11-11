@@ -3,12 +3,14 @@ import csv
 
 
 def load_skaters_data(filepath):
-    """Load skater data from CSV file."""
+    """Load skater data from CSV file, filtering to 'all' situation only."""
     skaters = []
     with open(filepath, 'r') as f:
         reader = csv.DictReader(f)
         for row in reader:
-            skaters.append(row)
+            # Only include rows where situation is 'all' to avoid duplicates
+            if row['situation'] == 'all':
+                skaters.append(row)
     return skaters
 
 
@@ -23,13 +25,13 @@ def find_player(skaters, player_name):
     return None
 
 
-def get_all_points(skaters):
-    """Get list of all players' points."""
-    points_list = []
+def get_all_game_scores(skaters):
+    """Get list of all players' game scores."""
+    scores_list = []
     for skater in skaters:
-        points = float(skater['I_F_points'])
-        points_list.append(points)
-    return points_list
+        score = float(skater['gameScore'])
+        scores_list.append(score)
+    return scores_list
 
 
 def get_all_player_names(skaters):
