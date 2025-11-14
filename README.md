@@ -1,6 +1,6 @@
-# Is _XYZ_ a good hockey player?
+# Is X a good hockey player?
 
-This small website gives the answer.
+This website gives the answer, at last.
 
 ## Run Locally
 
