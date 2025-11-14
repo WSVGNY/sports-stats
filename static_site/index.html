@@ -53,21 +53,22 @@
 
 <body>
     <div>
-        <b>Is</b>
-        <span class="input-wrapper">
-            <input type="text" id="playerInput" placeholder="player name" autocomplete="off">
-            <div id="autocompleteDropdown" class="autocomplete-dropdown"></div>
-        </span>
-        <b>a good hockey player?*</b>
+        <div>
+            <b>Is</b>
+            <span class="input-wrapper">
+                <input type="text" id="playerInput" placeholder="player name" autocomplete="off">
+                <div id="autocompleteDropdown" class="autocomplete-dropdown"></div>
+            </span>
+            <b>a good hockey player?*</b>
+        </div>
+
+        <div style="color: #666; margin-top: 5px; margin-bottom: 10px;">
+            * According to 2024-2025 statistics from moneypuck.com, out of players who played more than 500 minutes.
+        </div>
+
+        <div id="errorMessage" style="display: none;"></div>
+        <div id="resultsContainer" style="display: none;"></div>
     </div>
-
-    <div style="font-size: 0.9em; color: #666; margin-top: 5px;">
-        * According to 2024-2025 statistics from moneypuck.com, out of players who played more than 500 minutes.
-    </div>
-
-    <div id="errorMessage" style="display: none;"></div>
-    <div id="resultsContainer" style="display: none;"></div>
-
     <script>
         // Global data
         let playersIndex = [];
@@ -167,18 +168,25 @@
                 'defense', 'physicality', 'possession'
             ];
 
-            const categoryHTML = categoryOrder.map(key => {
+            const categoryLines = categoryOrder.map(key => {
                 const category = player.categories[key];
                 const label = key.charAt(0).toUpperCase() + key.slice(1);
                 const paddedLabel = label.padEnd(12, ' ');
-                return `<div>${paddedLabel} ${createBar(category.percentile)} ${category.grade}</div>`;
-            }).join('');
+                return `${paddedLabel} ${createBar(category.percentile)} ${category.grade}`;
+            });
 
-            resultsContainer.innerHTML = `
-                <div><b>${player.overall_grade} Tier</b></div>
-                ${categoryHTML}
-            `;
+            // Box width: "| " + content + " |"
+            const innerWidth = 12 + 1 + 20 + 1 + 1;  // label + space + bar + space + grade
+            const horizontalLine = '+' + '-'.repeat(innerWidth + 2) + '+';
 
+            const boxedContent = [
+                horizontalLine,
+                `| ${('Overall Grade: ' + player.overall_grade).padEnd(innerWidth, ' ')} |`,
+                ...categoryLines.map(line => `| ${line.padEnd(innerWidth, ' ')} |`),
+                horizontalLine
+            ].join('\n');
+
+            resultsContainer.innerHTML = boxedContent;
             resultsContainer.style.display = 'block';
         }
 
