@@ -1,6 +1,6 @@
-# NHL Player Stats
+# Is [player name] a good hockey player?
 
-Static web app for evaluating NHL players across 6 criteria: scoring, shooting, playmaking, defense, physicality, and possession.
+This small website gives the answer.
 
 ## Run Locally
 
@@ -10,14 +10,6 @@ python3 -m http.server 8000
 ```
 
 Open http://localhost:8000
-
-## Deploy
-
-Deploy the `static_site/` directory to any static host:
-
-- **Netlify**: Drag `static_site/` folder to https://app.netlify.com/drop
-- **GitHub Pages**: Push `static_site/` contents and enable Pages in repo settings
-- **Vercel/Cloudflare Pages**: Deploy the `static_site/` directory
 
 ## Update Data
 
