@@ -1,4 +1,4 @@
-# Is [player name] a good hockey player?
+# Is _XYZ_ a good hockey player?
 
 This small website gives the answer.
 
