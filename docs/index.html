@@ -4,6 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
+    <link rel="icon" type="image/x-icon" href="/favicon.ico">
     <title>Is X a good hockey player?</title>
     <style>
         body {
@@ -201,8 +202,7 @@
 
             // Find player (exact or partial match)
             const player = allPlayers.find(p =>
-                p.name.toLowerCase() === playerName.toLowerCase() ||
-                p.name.toLowerCase().includes(playerName.toLowerCase())
+                p.name.toLowerCase() === playerName.toLowerCase()
             );
 
             if (!player) {
