@@ -205,3 +205,11 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+# Project specific
+.DS_Store
+*.pyc
+estimate_data_size.py
+static_data/players-full-pretty.json
+node_modules/
+frontend/

@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NHL Player Evaluation</title>
+    <style>
+        body {
+            font-family: monospace;
+            margin: 20px;
+        }
+
+        .input-wrapper {
+            position: relative;
+            display: inline-block;
+        }
+
+        input {
+            font-family: monospace;
+            border: none;
+            border-bottom: 1px solid black;
+            width: 300px;
+        }
+
+        .autocomplete-dropdown {
+            position: absolute;
+            background: white;
+            border: 1px solid black;
+            max-height: 300px;
+            overflow-y: auto;
+            display: none;
+        }
+
+        .autocomplete-dropdown.show {
+            display: block;
+        }
+
+        .autocomplete-item {
+            padding: 5px;
+            cursor: pointer;
+        }
+
+        .autocomplete-item:hover {
+            background: #eee;
+        }
+
+        #resultsContainer {
+            white-space: pre;
+        }
+    </style>
+</head>
+
+<body>
+    <div>
+        <b>Is</b>
+        <span class="input-wrapper">
+            <input type="text" id="playerInput" placeholder="player name" autocomplete="off">
+            <div id="autocompleteDropdown" class="autocomplete-dropdown"></div>
+        </span>
+        <b>a good hockey player?*</b>
+    </div>
+
+    <div style="font-size: 0.9em; color: #666; margin-top: 5px;">
+        * According to 2024-2025 statistics from moneypuck.com, out of players who played more than 500 minutes.
+    </div>
+
+    <div id="errorMessage" style="display: none;"></div>
+    <div id="resultsContainer" style="display: none;"></div>
+
+    <script>
+        // Global data
+        let playersIndex = [];
+        let allPlayers = [];
+
+        // DOM elements
+        const playerInput = document.getElementById('playerInput');
+        const autocompleteDropdown = document.getElementById('autocompleteDropdown');
+        const errorMessage = document.getElementById('errorMessage');
+        const resultsContainer = document.getElementById('resultsContainer');
+
+        // Load data on page load
+        async function loadData() {
+            try {
+                // Check if we're running on file:// protocol (local file system)
+                const isFileProtocol = window.location.protocol === 'file:';
+
+                if (isFileProtocol) {
+                    // For local file:// - embed the data directly
+                    // You'll need to run: python3 embed_data.py
+                    showError('Please run a local server to use this app. Open terminal and run:\n\ncd static_site\npython3 -m http.server 8000\n\nThen visit http://localhost:8000');
+                    return;
+                }
+
+                const [indexData, fullData] = await Promise.all([
+                    fetch('data/index.json').then(r => r.json()),
+                    fetch('data/players-full.json').then(r => r.json())
+                ]);
+
+                playersIndex = indexData;
+                allPlayers = fullData;
+            } catch (err) {
+                console.error('Failed to load data:', err);
+                showError('Failed to load player data. Please check that data files exist.');
+            }
+        }
+
+        // Create bar visualization
+        function createBar(percentile) {
+            const barLength = 20;
+            const filled = Math.floor((percentile / 100) * barLength);
+            const empty = barLength - filled;
+            return '█'.repeat(filled) + '░'.repeat(empty);
+        }
+
+        // Show autocomplete results
+        function updateAutocomplete() {
+            const searchTerm = playerInput.value.toLowerCase();
+
+            if (!searchTerm) {
+                autocompleteDropdown.classList.remove('show');
+                autocompleteDropdown.innerHTML = '';
+                return;
+            }
+
+            const matches = playersIndex
+                .filter(p => p.name.toLowerCase().includes(searchTerm))
+                .slice(0, 10);
+
+            if (matches.length === 0) {
+                autocompleteDropdown.classList.remove('show');
+                autocompleteDropdown.innerHTML = '';
+                return;
+            }
+
+            autocompleteDropdown.innerHTML = matches.map(player =>
+                `<div class="autocomplete-item" data-name="${player.name}">
+                    ${player.name} (${player.team}, ${player.position})
+                </div>`
+            ).join('');
+
+            autocompleteDropdown.classList.add('show');
+
+            // Add click handlers
+            autocompleteDropdown.querySelectorAll('.autocomplete-item').forEach(item => {
+                item.addEventListener('click', () => {
+                    playerInput.value = item.dataset.name;
+                    autocompleteDropdown.classList.remove('show');
+                    handleSubmit();
+                });
+            });
+        }
+
+        // Show error
+        function showError(message) {
+            errorMessage.textContent = message;
+            errorMessage.style.display = 'block';
+            resultsContainer.style.display = 'none';
+        }
+
+        // Show player results
+        function showResults(player) {
+            errorMessage.style.display = 'none';
+
+            const categoryOrder = [
+                'scoring', 'shooting', 'playmaking',
+                'defense', 'physicality', 'possession'
+            ];
+
+            const categoryHTML = categoryOrder.map(key => {
+                const category = player.categories[key];
+                const label = key.charAt(0).toUpperCase() + key.slice(1);
+                const paddedLabel = label.padEnd(12, ' ');
+                return `<div>${paddedLabel} ${createBar(category.percentile)} ${category.grade}</div>`;
+            }).join('');
+
+            resultsContainer.innerHTML = `
+                <div><b>${player.overall_grade} Tier</b></div>
+                ${categoryHTML}
+            `;
+
+            resultsContainer.style.display = 'block';
+        }
+
+        // Handle submit
+        function handleSubmit() {
+            const playerName = playerInput.value.trim();
+
+            if (!playerName) {
+                showError('Please enter a player name');
+                return;
+            }
+
+            // Find player (exact or partial match)
+            const player = allPlayers.find(p =>
+                p.name.toLowerCase() === playerName.toLowerCase() ||
+                p.name.toLowerCase().includes(playerName.toLowerCase())
+            );
+
+            if (!player) {
+                showError(`Player '${playerName}' not found`);
+                return;
+            }
+
+            showResults(player);
+        }
+
+        // Event listeners
+        playerInput.addEventListener('input', updateAutocomplete);
+        playerInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                autocompleteDropdown.classList.remove('show');
+                handleSubmit();
+            }
+        });
+
+        // Close autocomplete when clicking outside
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('.input-wrapper')) {
+                autocompleteDropdown.classList.remove('show');
+            }
+        });
+
+        // Load data on page load
+        loadData();
+    </script>
+</body>
+
+</html>

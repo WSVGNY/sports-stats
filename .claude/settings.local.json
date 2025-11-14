@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(source:*)",
+      "Bash(python build_static_data.py:*)",
+      "Bash(npm create:*)",
+      "Bash(npx sv create frontend)",
+      "Bash(npm install:*)",
+      "Bash(npm run dev:*)",
+      "Bash(npm run build:*)",
+      "Bash(curl:*)",
+      "Bash(open:*)",
+      "Bash(python3:*)",
+      "Bash(tree:*)",
+      "Bash(rm:*)",
+      "Bash(cat:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
