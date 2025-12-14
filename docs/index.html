@@ -49,6 +49,66 @@
         #resultsContainer {
             white-space: pre;
         }
+
+        #comparisonContainer {
+            margin-top: 20px;
+            white-space: pre;
+        }
+
+        .comparison-header {
+            border-top: 2px solid black;
+            border-bottom: 2px solid black;
+            padding: 5px 0;
+            margin: 10px 0;
+            font-weight: bold;
+        }
+
+        .comparison-player {
+            margin: 15px 0;
+            position: relative;
+        }
+
+        .remove-comparison {
+            cursor: pointer;
+            color: #666;
+            text-decoration: none;
+            margin-left: 10px;
+        }
+
+        .remove-comparison:hover {
+            color: #000;
+        }
+
+        .action-button {
+            font-family: monospace;
+            background: white;
+            border: 1px solid black;
+            padding: 5px 10px;
+            cursor: pointer;
+            margin-right: 10px;
+            margin-top: 10px;
+        }
+
+        .action-button:hover {
+            background: #eee;
+        }
+
+        .action-button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .differential {
+            color: #666;
+        }
+
+        .differential.positive {
+            color: #2d7d2d;
+        }
+
+        .differential.negative {
+            color: #b33;
+        }
     </style>
 </head>
 
@@ -69,17 +129,23 @@
 
         <div id="errorMessage" style="display: none;"></div>
         <div id="resultsContainer" style="display: none;"></div>
+        <div id="buttonContainer" style="display: none;"></div>
+        <div id="comparisonContainer" style="display: none;"></div>
     </div>
     <script>
         // Global data
         let playersIndex = [];
         let allPlayers = [];
+        let comparedPlayers = [];
+        let currentPlayer = null;
 
         // DOM elements
         const playerInput = document.getElementById('playerInput');
         const autocompleteDropdown = document.getElementById('autocompleteDropdown');
         const errorMessage = document.getElementById('errorMessage');
         const resultsContainer = document.getElementById('resultsContainer');
+        const buttonContainer = document.getElementById('buttonContainer');
+        const comparisonContainer = document.getElementById('comparisonContainer');
 
         // Load data on page load
         async function loadData() {
@@ -101,6 +167,9 @@
 
                 playersIndex = indexData;
                 allPlayers = fullData;
+
+                // Load from URL if parameters present
+                loadFromURL();
             } catch (err) {
                 console.error('Failed to load data:', err);
                 showError('Failed to load player data. Please check that data files exist.');
@@ -158,10 +227,174 @@
             errorMessage.textContent = message;
             errorMessage.style.display = 'block';
             resultsContainer.style.display = 'none';
+            buttonContainer.style.display = 'none';
+        }
+
+        // Add player to comparison
+        function addToComparison(player) {
+            // Check if player already in comparison
+            if (comparedPlayers.some(p => p.slug === player.slug)) {
+                return;
+            }
+
+            // Limit to 4 players
+            if (comparedPlayers.length >= 4) {
+                alert('Maximum 4 players can be compared at once');
+                return;
+            }
+
+            comparedPlayers.push(player);
+            renderComparisonPanel();
+            updateURL();
+
+            // Scroll to comparison
+            comparisonContainer.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+
+        // Remove player from comparison
+        function removeFromComparison(slug) {
+            comparedPlayers = comparedPlayers.filter(p => p.slug !== slug);
+            if (comparedPlayers.length === 0) {
+                comparisonContainer.style.display = 'none';
+            } else {
+                renderComparisonPanel();
+            }
+            updateURL();
+        }
+
+        // Clear all comparisons
+        function clearComparisons() {
+            comparedPlayers = [];
+            comparisonContainer.style.display = 'none';
+            updateURL();
+        }
+
+        // Calculate differential
+        function getDifferential(percentile1, percentile2) {
+            const diff = percentile1 - percentile2;
+            if (Math.abs(diff) < 1) return '';
+
+            const sign = diff > 0 ? '+' : '';
+            const arrow = diff > 0 ? '↑' : '↓';
+            const className = diff > 0 ? 'positive' : 'negative';
+
+            return `<span class="differential ${className}"> (${sign}${diff.toFixed(0)} ${arrow})</span>`;
+        }
+
+        // Render comparison panel
+        function renderComparisonPanel() {
+            if (comparedPlayers.length === 0) {
+                comparisonContainer.style.display = 'none';
+                return;
+            }
+
+            const categoryOrder = [
+                'scoring', 'shooting', 'playmaking',
+                'defense', 'physicality', 'possession'
+            ];
+
+            // Use first player as baseline
+            const baseline = comparedPlayers[0];
+
+            let html = '<div class="comparison-header">';
+            html += `COMPARISON (${comparedPlayers.length} player${comparedPlayers.length > 1 ? 's' : ''})`;
+            html += '</div>\n\n';
+
+            comparedPlayers.forEach((player, index) => {
+                const isBaseline = index === 0;
+
+                html += '<div class="comparison-player">';
+                html += `<a href="#" class="remove-comparison" data-slug="${player.slug}">[×]</a> `;
+                html += `<b>${player.name}</b> (${player.team}, ${player.position}) - Grade: ${player.overall_grade}`;
+
+                if (!isBaseline) {
+                    const overallDiff = getDifferential(player.overall_percentile, baseline.overall_percentile);
+                    html += overallDiff;
+                }
+
+                html += isBaseline ? ' (baseline)\n' : '\n';
+
+                const categoryLines = categoryOrder.map(key => {
+                    const category = player.categories[key];
+                    const label = key.charAt(0).toUpperCase() + key.slice(1);
+                    const paddedLabel = label.padEnd(12, ' ');
+                    const bar = createBar(category.percentile);
+
+                    let diff = '';
+                    if (!isBaseline) {
+                        const baselineCategory = baseline.categories[key];
+                        diff = getDifferential(category.percentile, baselineCategory.percentile);
+                    }
+
+                    return `    ${paddedLabel} ${bar} ${category.grade}${diff}`;
+                });
+
+                html += categoryLines.join('\n');
+                html += '\n</div>\n\n';
+            });
+
+            html += '<button class="action-button" onclick="clearComparisons()">Clear All</button>';
+
+            comparisonContainer.innerHTML = html;
+            comparisonContainer.style.display = 'block';
+
+            // Add event listeners to remove buttons
+            document.querySelectorAll('.remove-comparison').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    removeFromComparison(btn.dataset.slug);
+                });
+            });
+        }
+
+        // Update URL with comparison state
+        function updateURL() {
+            const params = new URLSearchParams();
+
+            if (currentPlayer) {
+                params.set('player', currentPlayer.slug);
+            }
+
+            if (comparedPlayers.length > 0) {
+                params.set('compare', comparedPlayers.map(p => p.slug).join(','));
+            }
+
+            const newURL = params.toString() ? `?${params.toString()}` : window.location.pathname;
+            window.history.replaceState({}, '', newURL);
+        }
+
+        // Load from URL parameters
+        function loadFromURL() {
+            const params = new URLSearchParams(window.location.search);
+
+            const playerSlug = params.get('player');
+            const compareSlug = params.get('compare');
+
+            if (playerSlug) {
+                const player = allPlayers.find(p => p.slug === playerSlug);
+                if (player) {
+                    playerInput.value = player.name;
+                    showResults(player);
+                }
+            }
+
+            if (compareSlug) {
+                const slugs = compareSlug.split(',');
+                slugs.forEach(slug => {
+                    const player = allPlayers.find(p => p.slug === slug);
+                    if (player && !comparedPlayers.some(p => p.slug === slug)) {
+                        comparedPlayers.push(player);
+                    }
+                });
+                if (comparedPlayers.length > 0) {
+                    renderComparisonPanel();
+                }
+            }
         }
 
         // Show player results
         function showResults(player) {
+            currentPlayer = player;
             errorMessage.style.display = 'none';
 
             const categoryOrder = [
@@ -189,6 +422,20 @@
 
             resultsContainer.innerHTML = boxedContent;
             resultsContainer.style.display = 'block';
+
+            // Show action buttons
+            const isInComparison = comparedPlayers.some(p => p.slug === player.slug);
+            const canAddMore = comparedPlayers.length < 4;
+
+            buttonContainer.innerHTML = `
+                <button class="action-button" onclick="addToComparison(currentPlayer)" ${isInComparison || !canAddMore ? 'disabled' : ''}>
+                    ${isInComparison ? 'Already in comparison' : canAddMore ? '+ Add to comparison' : 'Comparison full (max 4)'}
+                </button>
+                ${comparedPlayers.length > 0 ? '<button class="action-button" onclick="clearComparisons()">Clear comparison</button>' : ''}
+            `;
+            buttonContainer.style.display = 'block';
+
+            updateURL();
         }
 
         // Handle submit
